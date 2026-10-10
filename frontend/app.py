@@ -31,7 +31,7 @@ APP_TITLE = "Stock Price Prediction Analyser"
 def analyse_stock(symbol, period, future_days):
     try:
         if not symbol or not str(symbol).strip():
-            return ("❌ Please enter a stock symbol.", None, None, None, None)
+            return ("âŒ Please enter a stock symbol.", None, None, None, None)
 
         future_days = int(future_days)
         future_days = max(1, min(future_days, 30))
@@ -57,7 +57,7 @@ def analyse_stock(symbol, period, future_days):
         average_price = float(data["Close"].mean())
 
         summary = f"""
-## 📊 Stock Analysis: {symbol}
+## ðŸ“Š Stock Analysis: {symbol}
 
 **Latest Closing Price:** {latest_close:,.2f}
 **Previous Closing Price:** {previous_close:,.2f}
@@ -69,13 +69,13 @@ def analyse_stock(symbol, period, future_days):
 
 ---
 
-### 🤖 Machine Learning Model
+### ðŸ¤– Machine Learning Model
 
 **Algorithm:** Linear Regression &nbsp;|&nbsp; **Train/Test Split:** 80/20
-**MAE:** {mae:.4f} &nbsp;|&nbsp; **RMSE:** {rmse:.4f} &nbsp;|&nbsp; **R² Score:** {r2:.4f}
+**MAE:** {mae:.4f} &nbsp;|&nbsp; **RMSE:** {rmse:.4f} &nbsp;|&nbsp; **RÂ² Score:** {r2:.4f}
 
 ---
-⚠️ This is a trend-based ML estimate for learning purposes, not financial advice.
+âš ï¸ This is a trend-based ML estimate for learning purposes, not financial advice.
 """
 
         historical_table = data.tail(50).copy()
@@ -90,7 +90,7 @@ def analyse_stock(symbol, period, future_days):
         return (summary, historical_graph, historical_table, prediction_graph, future_table)
 
     except Exception as e:
-        return (f"❌ Error: {str(e)}", None, None, None, None)
+        return (f"âŒ Error: {str(e)}", None, None, None, None)
 
 
 # ============================================================
@@ -107,7 +107,7 @@ def handle_login(username, password):
 
     if success:
         display_name = result
-        welcome = f"### 👋 Welcome, {display_name}!"
+        welcome = f"### ðŸ‘‹ Welcome, {display_name}!"
         return (
             gr.update(visible=False),   # hide auth screen
             gr.update(visible=True),    # show app screen
@@ -154,7 +154,7 @@ def build_interface() -> gr.Blocks:
 
         gr.Markdown(
             """
-            <div class="title">📈 Stock Price Prediction Analyser</div>
+            <div class="title">ðŸ“ˆ Stock Price Prediction Analyser</div>
             <div class="subtitle">Live Historical Data + Machine Learning Based Prediction</div>
             """
         )
@@ -169,7 +169,7 @@ def build_interface() -> gr.Blocks:
                 with gr.Tab("Login"):
                     login_username = gr.Textbox(label="Username")
                     login_password = gr.Textbox(label="Password", type="password")
-                    login_button = gr.Button("🔓 Login", variant="primary")
+                    login_button = gr.Button("ðŸ”“ Login", variant="primary")
                     login_message = gr.Markdown("")
 
                 with gr.Tab("Sign Up"):
@@ -177,7 +177,7 @@ def build_interface() -> gr.Blocks:
                     signup_username = gr.Textbox(label="Choose a username")
                     signup_password = gr.Textbox(label="Choose a password", type="password")
                     signup_confirm = gr.Textbox(label="Confirm password", type="password")
-                    signup_button = gr.Button("📝 Create Account", variant="primary")
+                    signup_button = gr.Button("ðŸ“ Create Account", variant="primary")
                     signup_message = gr.Markdown("")
 
         # ============================================================
@@ -187,11 +187,11 @@ def build_interface() -> gr.Blocks:
         with gr.Group(visible=False) as app_group:
 
             greeting = gr.Markdown("")
-            logout_button = gr.Button("🚪 Logout")
+            logout_button = gr.Button("ðŸšª Logout")
 
             gr.Markdown(
                 """
-                ### 🔍 Enter Stock Details
+                ### ðŸ” Enter Stock Details
                 Examples: `AAPL` (Apple), `MSFT` (Microsoft), `GOOGL` (Google),
                 `RELIANCE.NS`, `TCS.NS`, `INFY.NS`, `^NSEI` (NIFTY 50)
                 """
@@ -202,20 +202,20 @@ def build_interface() -> gr.Blocks:
                 period = gr.Dropdown(label="Historical Period", choices=["1mo", "3mo", "6mo", "1y", "2y", "5y"], value="1y")
                 future_days = gr.Slider(minimum=1, maximum=30, value=7, step=1, label="Prediction Days")
 
-            analyse_button = gr.Button("🔎 Analyse Stock", variant="primary")
+            analyse_button = gr.Button("ðŸ”Ž Analyse Stock", variant="primary")
 
             summary_output = gr.Markdown(label="Analysis Summary")
 
-            gr.Markdown("## 📈 Historical Price Chart")
+            gr.Markdown("## ðŸ“ˆ Historical Price Chart")
             historical_graph = gr.Plot(label="Historical Price")
 
-            gr.Markdown("## 📋 Historical Data")
+            gr.Markdown("## ðŸ“‹ Historical Data")
             historical_table = gr.Dataframe(label="Recent Historical Data", interactive=False)
 
-            gr.Markdown("## 🤖 Actual vs Predicted")
+            gr.Markdown("## ðŸ¤– Actual vs Predicted")
             prediction_graph = gr.Plot(label="Prediction Performance")
 
-            gr.Markdown("## 🔮 Future Price Prediction")
+            gr.Markdown("## ðŸ”® Future Price Prediction")
             future_table = gr.Dataframe(label="Predicted Prices", interactive=False)
 
             analyse_button.click(
@@ -257,7 +257,7 @@ def launch_app():
     print("=" * 60)
 
     demo = build_interface()
-    demo.launch(inbrowser=True, css=custom_css)
+    demo.launch(server_name="0.0.0.0", server_port=int(os.environ.get("PORT", "7860")), inbrowser=False, css=custom_css)
 
 
 if __name__ == "__main__":
