@@ -1,44 +1,31 @@
-"""
-user_store.py
---------------
-Handles user self-registration (sign up) and login verification.
 
-Users are stored in users.json in the project root. Passwords are
-NEVER stored in plain text - each password is hashed with PBKDF2-HMAC-SHA256
-using a unique random salt per user.
-
-This replaces the old "one random login per run" approach: now anyone
-can create their own account, and it persists across restarts.
-"""
-
-import json
 import os
 import hashlib
 import secrets
+import hmac
+from functools import lru_cache
 
-USERS_FILE = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "users.json",
-)
+from dotenv import load_dotenv
+from pymongo import MongoClient
+from pymongo.errors import DuplicateKeyError, PyMongoError
+
+load_dotenv()
 
 MIN_USERNAME_LENGTH = 3
 MIN_PASSWORD_LENGTH = 6
 PBKDF2_ITERATIONS = 200_000
 
 
-def _load_users() -> dict:
-    if not os.path.exists(USERS_FILE):
-        return {}
-    try:
-        with open(USERS_FILE, "r") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, OSError):
-        return {}
+@lru_cache(maxsize=1)
+def _get_collection():
+    uri = os.getenv("MONGODB_URI")
+    if not uri:
+        raise RuntimeError("MONGODB_URI is not configured.")
 
-
-def _save_users(users: dict) -> None:
-    with open(USERS_FILE, "w") as f:
-        json.dump(users, f, indent=2)
+    client = MongoClient(uri, serverSelectionTimeoutMS=10000)
+    collection = client["stock_app"]["users"]
+    collection.create_index("username_key", unique=True)
+    return collection
 
 
 def _hash_password(password: str, salt_hex: str = None) -> tuple[str, str]:
@@ -56,59 +43,60 @@ def _hash_password(password: str, salt_hex: str = None) -> tuple[str, str]:
 
 
 def register_user(username: str, password: str, confirm_password: str) -> tuple[bool, str]:
-    """
-    Creates a new account. Returns (success, message).
-    """
     username = (username or "").strip()
     password = password or ""
+    confirm_password = confirm_password or ""
 
     if not username or not password:
-        return False, "❌ Please fill in both username and password."
-
+        return False, "Please fill in both username and password."
     if len(username) < MIN_USERNAME_LENGTH:
-        return False, f"❌ Username must be at least {MIN_USERNAME_LENGTH} characters."
-
+        return False, f"Username must be at least {MIN_USERNAME_LENGTH} characters."
     if len(password) < MIN_PASSWORD_LENGTH:
-        return False, f"❌ Password must be at least {MIN_PASSWORD_LENGTH} characters."
-
+        return False, f"Password must be at least {MIN_PASSWORD_LENGTH} characters."
     if password != confirm_password:
-        return False, "❌ Passwords do not match."
+        return False, "Passwords do not match."
 
-    users = _load_users()
+    try:
+        collection = _get_collection()
+        username_key = username.casefold()
 
-    if username.lower() in users:
-        return False, "❌ That username is already taken. Please choose another."
+        if collection.find_one({"username_key": username_key}, {"_id": 1}):
+            return False, "That username is already taken. Please choose another."
 
-    salt_hex, pw_hash = _hash_password(password)
-    users[username.lower()] = {
-        "display_name": username,
-        "salt": salt_hex,
-        "hash": pw_hash,
-    }
-    _save_users(users)
+        salt_hex, pw_hash = _hash_password(password)
+        collection.insert_one({
+            "username_key": username_key,
+            "display_name": username,
+            "salt": salt_hex,
+            "hash": pw_hash,
+        })
+        return True, "Account created! You can now log in from the Login tab."
 
-    return True, "✅ Account created! You can now log in from the Login tab."
+    except DuplicateKeyError:
+        return False, "That username is already taken. Please choose another."
+    except (PyMongoError, RuntimeError):
+        return False, "Database error. Please try again later."
 
 
 def verify_user(username: str, password: str) -> tuple[bool, str]:
-    """
-    Checks login credentials. Returns (success, message_or_display_name).
-    """
     username = (username or "").strip()
     password = password or ""
 
     if not username or not password:
-        return False, "❌ Please enter both username and password."
+        return False, "Please enter both username and password."
 
-    users = _load_users()
-    record = users.get(username.lower())
+    try:
+        record = _get_collection().find_one({
+            "username_key": username.casefold()
+        })
+        if record is None:
+            return False, "No account found with that username. Please sign up first."
 
-    if record is None:
-        return False, "❌ No account found with that username. Please sign up first."
+        _, pw_hash = _hash_password(password, record["salt"])
+        if not hmac.compare_digest(pw_hash, record["hash"]):
+            return False, "Incorrect password."
 
-    _, pw_hash = _hash_password(password, record["salt"])
+        return True, record["display_name"]
 
-    if pw_hash != record["hash"]:
-        return False, "❌ Incorrect password."
-
-    return True, record["display_name"]
+    except (PyMongoError, RuntimeError):
+        return False, "Unable to connect to the database. Please try again later."
